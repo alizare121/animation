@@ -1,74 +1,74 @@
 'use client';
 import Image from 'next/image';
-import { useCallback, useEffect, useState } from 'react';
+import { useSprings, animated } from '@react-spring/web';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
-  const initialLocation = {
-    x: window.innerWidth - 40,
-    y: window.innerHeight - 40,
-  };
-
-  const endLocation = {
-    x: window.innerWidth - window.innerWidth / 2,
-    y: window.innerHeight - window.innerWidth / 2,
-  };
-
-  const [iconLocation, setIconLocation] = useState(initialLocation);
-  const [scroll, setScroll] = useState(0);
-  const [result, setResult] = useState(0);
-
-  function calculateLogParameters(x1: number, y1: number, x2: number, y2: number) {
-    var a = (y2 - y1) / (Math.log(x2) - Math.log(x1));
-    var b = y1 - a * Math.log(x1);
-    return {
-      a: a,
-      b: b,
-    };
-  }
-
-  function calculateY(a: number, b: number, x: number) {
-    console.log('x :>> ', x);
-    return a * Math.log(x) + b;
-  }
+  const [scrollY, setScrollY] = useState(0);
+  const [animationState, setAnimationState] = useState(false);
 
   useEffect(() => {
-    const handleScroll = (event: any) => {
-      setScroll((pre) => pre + event.deltaY / 10);
-      setResult(calculateY(parameters.a, parameters.b, scroll));
-      event.preventDefault();
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > scrollY) {
+        setAnimationState(true); // End state
+      } else {
+        setAnimationState(false); // Start state
+      }
+      setScrollY(currentScrollY);
     };
 
-    document.addEventListener('wheel', handleScroll, { passive: false });
-
-    const parameters = calculateLogParameters(initialLocation.x, initialLocation.y, endLocation.x, endLocation.y);
-
+    window.addEventListener('scroll', handleScroll);
     return () => {
-      document.removeEventListener('wheel', handleScroll);
+      window.removeEventListener('scroll', handleScroll);
     };
-  }, [endLocation.x, endLocation.y, initialLocation.x, initialLocation.y, scroll]);
+  }, [scrollY]);
 
-  useEffect(
-    () => {
-      const parameters = calculateLogParameters(initialLocation.x, initialLocation.y, endLocation.x, endLocation.y);
-      setResult(calculateY(parameters.a, parameters.b, initialLocation.x))
-    }, []
-  )
+  // Define the icons with their starting and ending points
+  const icons = [
+    { startX: -600, startY: 200, endX: -160, endY: 691, rotaition: -30 },
+    { startX: -600, startY: -50, endX: 0, endY: 504, rotaition: -25 },
+    { startX: -400, startY: 200, endX: 158, endY: 691, rotaition: -20 },
+    { startX: 450, startY: 150, endX: 0, endY: 691, rotaition: 20 },
+    // Add more icons as needed
+  ];
+
+  const springs = useSprings(
+    icons.length,
+    icons.map((icon) => ({
+      transform: animationState
+        ? `translate(${icon.endX}px, ${icon.endY}px) rotate(0deg)`
+        : `translate(${icon.startX}px, ${icon.startY}px) rotate(${icon.rotaition}deg)`,
+      config: { mass: 1, tension: 150, friction: 20 },
+    }))
+  );
 
   return (
     <main className='flex min-h-screen relative flex-col items-center justify-between overflow-y-hidden p-24 max-h-[100vh]'>
-      {scroll}, {result}
+      <div className='absolute z-10 top-0 left-0 right-0 bottom-0 max-h-[100vh] overflow-scroll no-scrollbar' onScroll={
+        (event) => {
+          const scrollTop = (event.target as HTMLElement).scrollTop;
+          if (scrollTop > scrollY) {
+            setAnimationState(true);
+          } else {
+            setAnimationState(false);
+          }
+          setScrollY(scrollTop);
+        }
+      }>
+        <div className='h-[200vh]'></div>
+      </div>
       <Image src='/mobile.svg' alt='mobile' width={666} height={1000} />
-      <Image
-        src='/investment-icon.svg'
-        alt='icon'
-        className='absolute right-10'
-        width={200}
-        height={200}
-        style={{
-          bottom: scroll / 10,
-          left: result
-        }}
-      />
+      {springs.map((springProps, index) => (
+        <animated.div key={index} style={springProps} className='absolute'>
+          <Image
+            src='/investment-icon.svg'
+            alt={`icon-${index}`}
+            width={200}
+            height={200}
+          />
+        </animated.div>
+      ))}
     </main>
   );
 }
